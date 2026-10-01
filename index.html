@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f1115" />
+<title>Untimed Arithmetic Drill</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#20242d; --text:#f3f4f6;
+    --muted:#9ca3af; --border:#2f3542; --good:#39d98a; --bad:#ff6b6b;
+    --accent:#7aa2f7; --shadow:0 16px 50px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at top, #171b24 0, var(--bg) 48%);
+    color:var(--text); font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  }
+  .app{width:min(940px,94vw); padding:24px}
+  .topbar{
+    display:flex; gap:14px; align-items:center; justify-content:space-between; margin-bottom:18px;
+  }
+  h1{font-size:20px; margin:0; font-weight:700; letter-spacing:.2px}
+  .sub{color:var(--muted); font-size:13px}
+  .grid{display:grid; grid-template-columns:1fr 310px; gap:18px}
+  .card{
+    background:rgba(23,26,33,.96); border:1px solid var(--border);
+    border-radius:18px; box-shadow:var(--shadow);
+  }
+  .main{padding:34px; min-height:470px; display:flex; flex-direction:column; justify-content:center}
+  .question{
+    text-align:center; font-size:clamp(42px,8vw,78px); font-weight:750; letter-spacing:-2px;
+    margin:6px 0 22px;
+  }
+  .answer-wrap{display:flex; justify-content:center}
+  input[type="text"]{
+    width:min(390px,100%); font-size:34px; text-align:center; padding:15px 18px;
+    background:#0d1015; color:var(--text); border:2px solid var(--border);
+    border-radius:14px; outline:none;
+  }
+  input[type="text"]:focus{border-color:var(--accent)}
+  input.good{border-color:var(--good)}
+  input.bad{border-color:var(--bad)}
+  .feedback{height:28px; text-align:center; margin-top:12px; font-weight:650}
+  .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+  .hint{text-align:center;color:var(--muted);font-size:13px;margin-top:12px}
+  .stats{
+    margin-top:28px; display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+  }
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:21px}.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+  .side{padding:18px}
+  .section{padding:8px 0 16px;border-bottom:1px solid var(--border)}
+  .section:last-child{border-bottom:0}
+  .section-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+  label.row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;font-size:14px;
+  }
+  .left{display:flex;align-items:center;gap:9px}
+  input[type="checkbox"]{width:17px;height:17px}
+  select,button{
+    background:#0d1015;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 10px;
+  }
+  button{cursor:pointer}
+  button:hover{border-color:#4b5563}
+  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .wide{grid-column:1/-1}
+  .tiny{font-size:12px;color:var(--muted);line-height:1.45}
+  kbd{background:#0d1015;border:1px solid var(--border);border-bottom-width:2px;padding:2px 6px;border-radius:5px}
+  @media(max-width:780px){
+    .grid{grid-template-columns:1fr}
+    .main{min-height:400px;padding:24px 18px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .side{order:2}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div>
+      <h1>Untimed Arithmetic Drill</h1>
+      <div class="sub">Correct answer → next question. Wrong answer → keep trying.</div>
+    </div>
+    <div class="sub">No timer. No pressure.</div>
+  </div>
+
+  <div class="grid">
+    <section class="card main">
+      <div id="question" class="question">12 × 7</div>
+      <div class="answer-wrap">
+        <input id="answer" type="text" inputmode="decimal" enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="off" aria-label="Answer" />
+      </div>
+      <div id="feedback" class="feedback"></div>
+      <div class="hint">Just type the answer — it advances automatically when correct. Fractions like <b>3/4</b> are accepted.</div>
+
+      <div class="stats">
+        <div class="stat"><b id="correct">0</b><span>Correct</span></div>
+        <div class="stat"><b id="attempts">0</b><span>Attempts</span></div>
+        <div class="stat"><b id="accuracy">—</b><span>Accuracy</span></div>
+        <div class="stat"><b id="streak">0</b><span>Streak</span></div>
+      </div>
+    </section>
+
+    <aside class="card side">
+      <div class="section">
+        <div class="section-title">Question types</div>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="add" checked> Addition</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="sub" checked> Subtraction</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="mul" checked> Multiplication</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="div" checked> Division</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="percent"> Percentages</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="frac"> Fractions</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="decimal"> Decimals</span></label>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Difficulty</div>
+        <label class="row">
+          <span>Level</span>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="standard" selected>Standard</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label class="row"><span class="left"><input id="missing" type="checkbox"> Missing operand questions</span></label>
+        <label class="row"><span class="left"><input id="allowNeg" type="checkbox"> Allow negative answers</span></label>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Controls</div>
+        <div class="buttons">
+          <button id="newBtn">New question</button>
+          <button id="skipBtn">Skip</button>
+          <button id="resetBtn" class="wide">Reset stats</button>
+        </div>
+      </div>
+
+      <div class="section tiny">
+        The generator favours clean mental-arithmetic questions rather than awkward calculator-style numbers.
+        Division questions always have exact integer answers. Percentage and fraction questions are generated to be mentally tractable.
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const qEl = document.getElementById('question');
+  const ansEl = document.getElementById('answer');
+  const feedbackEl = document.getElementById('feedback');
+  const correctEl = document.getElementById('correct');
+  const attemptsEl = document.getElementById('attempts');
+  const accuracyEl = document.getElementById('accuracy');
+  const streakEl = document.getElementById('streak');
+  const difficultyEl = document.getElementById('difficulty');
+  const missingEl = document.getElementById('missing');
+  const allowNegEl = document.getElementById('allowNeg');
+
+  let current = null;
+  let stats = {correct:0, attempts:0, streak:0};
+
+  const ri = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  const gcd = (a,b) => b ? gcd(b,a%b) : Math.abs(a);
+
+  function settings(){
+    const checked = [...document.querySelectorAll('.type:checked')].map(x=>x.value);
+    if (!checked.length){
+      document.querySelector('.type[value="mul"]').checked = true;
+      return {types:['mul'], level:difficultyEl.value};
+    }
+    return {types:checked, level:difficultyEl.value};
+  }
+
+  function ranges(level){
+    if(level === 'easy') return {add:40, mul:9, hardMul:12};
+    if(level === 'hard') return {add:250, mul:19, hardMul:30};
+    return {add:100, mul:12, hardMul:20};
+  }
+
+  function maybeMissing(a, op, b, result){
+    if(!missingEl.checked || Math.random() > 0.28) return {text:`${a} ${op} ${b}`, answer:result};
+    const left = Math.random() < .5;
+    if(left) return {text:`? ${op} ${b} = ${result}`, answer:a};
+    return {text:`${a} ${op} ? = ${result}`, answer:b};
+  }
+
+  function genAdd(R){
+    const a=ri(2,R.add), b=ri(2,R.add);
+    return maybeMissing(a,'+',b,a+b);
+  }
+
+  function genSub(R){
+    let a=ri(2,R.add), b=ri(2,R.add);
+    if(!allowNegEl.checked && b>a) [a,b]=[b,a];
+    return maybeMissing(a,'−',b,a-b);
+  }
+
+  function genMul(R){
+    let a,b;
+    if(difficultyEl.value==='hard' && Math.random()<.45){
+      a=ri(11,R.hardMul); b=ri(3,R.mul);
+    } else {
+      a=ri(2,R.mul); b=ri(2,R.mul);
+    }
+    return maybeMissing(a,'×',b,a*b);
+  }
+
+  function genDiv(R){
+    const divisor=ri(2,R.mul), result=ri(2,R.mul);
+    const dividend=divisor*result;
+    return maybeMissing(dividend,'÷',divisor,result);
+  }
+
+  function genPercent(){
+    const p = pick([5,10,12.5,15,20,25,30,40,50,60,75]);
+    const bases = p===12.5 ? [40,48,56,64,72,80,96,120,160] :
+                  [20,30,40,50,60,80,100,120,150,200,240,300,400];
+    const n = pick(bases);
+    const answer = p*n/100;
+    if(Math.random()<.35){
+      const whole = answer;
+      const pct = p;
+      return {text:`${whole} is ${pct}% of ?`, answer:n};
+    }
+    return {text:`${p}% of ${n}`, answer};
+  }
+
+  function genFrac(){
+    const d1=pick([2,3,4,5,6,8,10,12]);
+    const d2=pick([2,3,4,5,6,8,10,12]);
+    const n1=ri(1,d1-1), n2=ri(1,d2-1);
+    const op = pick(['+','−']);
+    let num, den;
+    if(op==='+'){ num=n1*d2+n2*d1; den=d1*d2; }
+    else {
+      num=n1*d2-n2*d1; den=d1*d2;
+      if(!allowNegEl.checked && num<0) return genFrac();
+    }
+    const g=gcd(num,den);
+    num/=g; den/=g;
+    const text=`${n1}/${d1} ${op} ${n2}/${d2}`;
+    return {text, answer:num/den, displayAnswer: den===1 ? `${num}` : `${num}/${den}`};
+  }
+
+  function genDecimal(){
+    const level=difficultyEl.value;
+    if(Math.random()<.5){
+      const places = level==='hard' ? 2 : 1;
+      const scale = 10**places;
+      const a=ri(2, level==='hard'?250:90)/scale;
+      const b=ri(2, level==='hard'?250:90)/scale;
+      const op=pick(['+','−']);
+      let x=a,y=b;
+      if(!allowNegEl.checked && op==='−' && y>x) [x,y]=[y,x];
+      const answer = op==='+' ? x+y : x-y;
+      return {text:`${x} ${op} ${y}`, answer};
+    } else {
+      const a=ri(2,25)/10;
+      const b=pick([2,4,5,10]);
+      return {text:`${a} × ${b}`, answer:a*b};
+    }
+  }
+
+  function newQuestion(){
+    const s=settings(), R=ranges(s.level), type=pick(s.types);
+    current =
+      type==='add' ? genAdd(R) :
+      type==='sub' ? genSub(R) :
+      type==='mul' ? genMul(R) :
+      type==='div' ? genDiv(R) :
+      type==='percent' ? genPercent() :
+      type==='frac' ? genFrac() :
+      genDecimal();
+
+    qEl.textContent=current.text;
+    feedbackEl.textContent='';
+    feedbackEl.className='feedback';
+    ansEl.value='';
+    ansEl.className='';
+    ansEl.focus();
+  }
+
+  function parseAnswer(raw){
+    const s=raw.trim().replace(/,/g,'');
+    if(!s) return NaN;
+    if(s.includes('/')){
+      const parts=s.split('/');
+      if(parts.length!==2) return NaN;
+      const a=Number(parts[0]), b=Number(parts[1]);
+      if(!Number.isFinite(a)||!Number.isFinite(b)||b===0) return NaN;
+      return a/b;
+    }
+    if(s.endsWith('%')) return Number(s.slice(0,-1))/100;
+    return Number(s);
+  }
+
+  function updateStats(){
+    correctEl.textContent=stats.correct;
+    attemptsEl.textContent=stats.attempts;
+    streakEl.textContent=stats.streak;
+    accuracyEl.textContent = stats.attempts ? Math.round(stats.correct/stats.attempts*100)+'%' : '—';
+  }
+
+  let advancing = false;
+
+  function checkAnswerAutomatically(){
+    if(advancing) return;
+
+    const raw = ansEl.value.trim();
+    if(!raw){
+      feedbackEl.textContent='';
+      feedbackEl.className='feedback';
+      ansEl.className='';
+      return;
+    }
+
+    const value=parseAnswer(raw);
+    if(!Number.isFinite(value)) return;
+
+    const ok=Math.abs(value-current.answer) < 1e-9;
+
+    if(ok){
+      advancing = true;
+      stats.attempts++;
+      stats.correct++;
+      stats.streak++;
+      feedbackEl.textContent='Correct';
+      feedbackEl.className='feedback good';
+      ansEl.className='good';
+      updateStats();
+
+      setTimeout(() => {
+        newQuestion();
+        advancing = false;
+      }, 140);
+    } else {
+      // Stay on the same question. Don't punish intermediate keystrokes
+      // or force the user to submit an incorrect attempt.
+      feedbackEl.textContent='';
+      feedbackEl.className='feedback';
+      ansEl.className='';
+    }
+  }
+
+  ansEl.addEventListener('input', checkAnswerAutomatically);
+
+  document.getElementById('newBtn').onclick=newQuestion;
+  document.getElementById('skipBtn').onclick=newQuestion;
+  document.getElementById('resetBtn').onclick=()=>{
+    stats={correct:0,attempts:0,streak:0}; updateStats(); newQuestion();
+  };
+  document.querySelectorAll('.type, #difficulty, #missing, #allowNeg').forEach(el=>{
+    el.addEventListener('change', newQuestion);
+  });
+
+  updateStats();
+  newQuestion();
+})();
+</script>
+</body>
+</html>
