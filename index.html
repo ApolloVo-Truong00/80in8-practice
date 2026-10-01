@@ -46,13 +46,6 @@
   input.good{border-color:var(--good)}
   input.bad{border-color:var(--bad)}
   .feedback{height:28px; text-align:center; margin-top:12px; font-weight:650}
-  .fraction-tools{display:flex;justify-content:center;margin-top:10px}
-  .fraction-btn{
-    min-width:54px;font-size:22px;font-weight:700;padding:8px 16px;
-    background:#0d1015;color:var(--text);border:1px solid var(--border);
-    border-radius:10px;cursor:pointer;touch-action:manipulation;
-  }
-  .fraction-btn:active{transform:scale(.97)}
   .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
   .hint{text-align:center;color:var(--muted);font-size:13px;margin-top:12px}
   .stats{
@@ -94,9 +87,6 @@
       <div class="answer-wrap">
         <input id="answer" type="text" inputmode="decimal" enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="off" aria-label="Answer" />
       </div>
-      <div class="fraction-tools">
-        <button id="slashBtn" class="fraction-btn" type="button" aria-label="Insert fraction slash">/</button>
-      </div>
       <div id="feedback" class="feedback"></div>
 
       <div class="stats">
@@ -115,22 +105,14 @@
         <label class="row"><span class="left"><input class="type" type="checkbox" value="mul" checked> Multiplication</span></label>
         <label class="row"><span class="left"><input class="type" type="checkbox" value="div" checked> Division</span></label>
         <label class="row"><span class="left"><input class="type" type="checkbox" value="percent"> Percentages</span></label>
-        <label class="row"><span class="left"><input class="type" type="checkbox" value="frac"> Fractions</span></label>
-        <label class="row"><span class="left"><input class="type" type="checkbox" value="decimal"> Decimals</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="frac" checked> Fractions</span></label>
+        <label class="row"><span class="left"><input class="type" type="checkbox" value="decimal" checked> Decimals</span></label>
       </div>
 
       <div class="section">
-        <div class="section-title">Difficulty</div>
-        <label class="row">
-          <span>Level</span>
-          <select id="difficulty">
-            <option value="easy">Easy</option>
-            <option value="standard" selected>Standard</option>
-            <option value="hard">Hard</option>
-          </select>
-        </label>
+        <div class="section-title">Options</div>
         <label class="row"><span class="left"><input id="missing" type="checkbox"> Missing operand questions</span></label>
-        <label class="row"><span class="left"><input id="allowNeg" type="checkbox"> Allow negative answers</span></label>
+        <label class="row"><span class="left"><input id="allowNeg" type="checkbox" checked> Allow negative answers</span></label>
       </div>
 
       <div class="section">
@@ -155,7 +137,6 @@
   const attemptsEl = document.getElementById('attempts');
   const accuracyEl = document.getElementById('accuracy');
   const streakEl = document.getElementById('streak');
-  const difficultyEl = document.getElementById('difficulty');
   const missingEl = document.getElementById('missing');
   const allowNegEl = document.getElementById('allowNeg');
 
@@ -164,114 +145,198 @@
 
   const ri = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
   const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  const chance = p => Math.random() < p;
   const gcd = (a,b) => b ? gcd(b,a%b) : Math.abs(a);
 
   function settings(){
     const checked = [...document.querySelectorAll('.type:checked')].map(x=>x.value);
     if (!checked.length){
       document.querySelector('.type[value="mul"]').checked = true;
-      return {types:['mul'], level:difficultyEl.value};
+      return {types:['mul']};
     }
-    return {types:checked, level:difficultyEl.value};
+    return {types:checked};
   }
 
-  function ranges(level){
-    if(level === 'easy') return {add:40, mul:9, hardMul:12};
-    if(level === 'hard') return {add:250, mul:19, hardMul:30};
-    return {add:100, mul:12, hardMul:20};
+  function signed(n, p=.28){
+    return chance(p) ? -n : n;
   }
 
   function maybeMissing(a, op, b, result){
-    if(!missingEl.checked || Math.random() > 0.28) return {text:`${a} ${op} ${b}`, answer:result};
+    if(!missingEl.checked || Math.random() > 0.20) return {text:`${a} ${op} ${b}`, answer:result};
     const left = Math.random() < .5;
     if(left) return {text:`? ${op} ${b} = ${result}`, answer:a};
     return {text:`${a} ${op} ? = ${result}`, answer:b};
   }
 
-  function genAdd(R){
-    const a=ri(2,R.add), b=ri(2,R.add);
-    return maybeMissing(a,'+',b,a+b);
-  }
+  // 80-in-8 style: mostly 2–3 digit arithmetic, some negatives, no toy-sized bias.
+  function genAdd(){
+    let a, b;
+    const mode = Math.random();
 
-  function genSub(R){
-    let a=ri(2,R.add), b=ri(2,R.add);
-    if(!allowNegEl.checked && b>a) [a,b]=[b,a];
-    return maybeMissing(a,'−',b,a-b);
-  }
-
-  function genMul(R){
-    let a,b;
-    if(difficultyEl.value==='hard' && Math.random()<.45){
-      a=ri(11,R.hardMul); b=ri(3,R.mul);
+    if(mode < .45){
+      a = ri(120, 999);
+      b = ri(20, 399);
+    } else if(mode < .75){
+      a = ri(20, 199);
+      b = ri(20, 199);
     } else {
-      a=ri(2,R.mul); b=ri(2,R.mul);
+      a = ri(40, 999);
+      b = ri(3, 99);
     }
-    return maybeMissing(a,'×',b,a*b);
+
+    if(allowNegEl.checked){
+      a = signed(a, .22);
+      b = signed(b, .18);
+    }
+    return maybeMissing(a, '+', b, a+b);
   }
 
-  function genDiv(R){
-    const divisor=ri(2,R.mul), result=ri(2,R.mul);
-    const dividend=divisor*result;
-    return maybeMissing(dividend,'÷',divisor,result);
+  function genSub(){
+    let a, b;
+    const mode = Math.random();
+
+    if(mode < .50){
+      a = ri(120, 999);
+      b = ri(20, 499);
+    } else if(mode < .80){
+      a = ri(40, 299);
+      b = ri(20, 199);
+    } else {
+      a = ri(20, 120);
+      b = ri(3, 99);
+    }
+
+    if(allowNegEl.checked){
+      a = signed(a, .28);
+      b = signed(b, .16);
+    } else if(b > a){
+      [a,b] = [b,a];
+    }
+    return maybeMissing(a, '−', b, a-b);
+  }
+
+  function genMul(){
+    const mode = Math.random();
+    let a, b;
+
+    if(mode < .42){
+      // 2-digit × 2-digit, e.g. 13 × 56, 45 × 27, 50 × 56
+      a = ri(11, 59);
+      b = ri(12, 69);
+    } else if(mode < .78){
+      // 3-digit × 1-digit, e.g. 541 × 5, 905 × 9
+      a = ri(101, 999);
+      b = ri(3, 9);
+    } else {
+      // easier-looking but still realistic round-factor multiplication
+      a = pick([20,25,30,40,50,60,75,80,90]);
+      b = ri(12, 79);
+    }
+
+    if(allowNegEl.checked && chance(.16)) a = -a;
+    return maybeMissing(a, '×', b, a*b);
+  }
+
+  function genDiv(){
+    // Construct exact divisions first, then present the product.
+    const mode = Math.random();
+    let divisor, result;
+
+    if(mode < .58){
+      divisor = pick([12,14,15,16,18,20,24,25,30,32,36,40,48]);
+      result = ri(6, 24);
+    } else {
+      divisor = pick([6,8,9,10,12,15,16,20,24]);
+      result = ri(12, 48);
+    }
+
+    let dividend = divisor * result;
+
+    // Keep typical displayed dividend mostly 2–3 digits / low 4 digits.
+    if(dividend > 999 && chance(.65)){
+      result = ri(6, 20);
+      dividend = divisor * result;
+    }
+
+    if(allowNegEl.checked && chance(.20)) dividend = -dividend;
+    return maybeMissing(dividend, '÷', divisor, dividend/divisor);
+  }
+
+  function genDecimal(){
+    const mode = Math.random();
+
+    if(mode < .55){
+      // One decimal mixed with integer/decimal, e.g. 9.9 - 53, 50 + 89.5
+      let a = chance(.50) ? ri(10,999)/10 : ri(20,99);
+      let b = chance(.60) ? ri(100,999)/10 : ri(20,99);
+      const op = chance(.52) ? '−' : '+';
+
+      if(allowNegEl.checked && chance(.12)) a = -a;
+      const answer = op === '+' ? a+b : a-b;
+      return {text:`${a} ${op} ${b}`, answer};
+    }
+
+    // Decimal multiplication with clean mental structure.
+    const a = pick([1.2,1.5,2.5,3.2,4.5,5.5,6.4,7.5,8.8,9.6]);
+    const b = pick([4,5,8,10,12,20,25]);
+    return {text:`${a} × ${b}`, answer:a*b};
   }
 
   function genPercent(){
     const p = pick([5,10,12.5,15,20,25,30,40,50,60,75]);
-    const bases = p===12.5 ? [40,48,56,64,72,80,96,120,160] :
-                  [20,30,40,50,60,80,100,120,150,200,240,300,400];
+    const bases = p===12.5
+      ? [40,48,56,64,72,80,96,120,160,240]
+      : [20,30,40,50,60,80,100,120,150,160,200,240,300,400,500];
     const n = pick(bases);
     const answer = p*n/100;
-    if(Math.random()<.35){
-      const whole = answer;
-      const pct = p;
-      return {text:`${whole} is ${pct}% of ?`, answer:n};
+
+    if(chance(.28)){
+      return {text:`${answer} is ${p}% of ?`, answer:n};
     }
     return {text:`${p}% of ${n}`, answer};
   }
 
   function genFrac(){
-    const d1=pick([2,3,4,5,6,8,10,12]);
-    const d2=pick([2,3,4,5,6,8,10,12]);
-    const n1=ri(1,d1-1), n2=ri(1,d2-1);
-    const op = pick(['+','−']);
-    let num, den;
-    if(op==='+'){ num=n1*d2+n2*d1; den=d1*d2; }
-    else {
-      num=n1*d2-n2*d1; den=d1*d2;
-      if(!allowNegEl.checked && num<0) return genFrac();
-    }
-    const g=gcd(num,den);
-    num/=g; den/=g;
-    const text=`${n1}/${d1} ${op} ${n2}/${d2}`;
-    return {text, answer:num/den, displayAnswer: den===1 ? `${num}` : `${num}/${den}`};
-  }
+    // Denominators observed are small; unreduced inputs are allowed on purpose.
+    const denoms = [2,3,4,5,6,8,10,12];
+    let d1 = pick(denoms);
+    let d2 = pick(denoms);
 
-  function genDecimal(){
-    const level=difficultyEl.value;
-    if(Math.random()<.5){
-      const places = level==='hard' ? 2 : 1;
-      const scale = 10**places;
-      const a=ri(2, level==='hard'?250:90)/scale;
-      const b=ri(2, level==='hard'?250:90)/scale;
-      const op=pick(['+','−']);
-      let x=a,y=b;
-      if(!allowNegEl.checked && op==='−' && y>x) [x,y]=[y,x];
-      const answer = op==='+' ? x+y : x-y;
-      return {text:`${x} ${op} ${y}`, answer};
-    } else {
-      const a=ri(2,25)/10;
-      const b=pick([2,4,5,10]);
-      return {text:`${a} × ${b}`, answer:a*b};
+    let n1 = ri(1, d1-1);
+    let n2 = ri(1, d2-1);
+
+    // Preserve unreduced-looking forms often, e.g. 3/6, 4/6, 2/12.
+    if(chance(.34)){
+      const forms = [[2,12],[3,6],[4,6],[3,12],[6,12],[2,8],[4,8]];
+      [n1,d1] = pick(forms);
     }
+    if(chance(.30)){
+      const forms = [[2,12],[3,6],[4,6],[5,12],[6,12],[2,8],[4,8]];
+      [n2,d2] = pick(forms);
+    }
+
+    if(allowNegEl.checked && chance(.18)) n1 = -n1;
+    if(allowNegEl.checked && chance(.10)) n2 = -n2;
+
+    const op = chance(.68) ? '−' : '+';
+    const num = op==='+' ? n1*d2+n2*d1 : n1*d2-n2*d1;
+    const den = d1*d2;
+    const g = gcd(num, den);
+
+    return {
+      text:`${n1}/${d1} ${op} ${n2}/${d2}`,
+      answer:(num/g)/(den/g),
+      displayAnswer:(den/g)===1 ? `${num/g}` : `${num/g}/${den/g}`
+    };
   }
 
   function newQuestion(){
-    const s=settings(), R=ranges(s.level), type=pick(s.types);
+    const s=settings(), type=pick(s.types);
     current =
-      type==='add' ? genAdd(R) :
-      type==='sub' ? genSub(R) :
-      type==='mul' ? genMul(R) :
-      type==='div' ? genDiv(R) :
+      type==='add' ? genAdd() :
+      type==='sub' ? genSub() :
+      type==='mul' ? genMul() :
+      type==='div' ? genDiv() :
       type==='percent' ? genPercent() :
       type==='frac' ? genFrac() :
       genDecimal();
@@ -348,29 +413,13 @@
 
   ansEl.addEventListener('input', checkAnswerAutomatically);
 
-  document.getElementById('slashBtn').addEventListener('click', () => {
-    const start = ansEl.selectionStart ?? ansEl.value.length;
-    const end = ansEl.selectionEnd ?? ansEl.value.length;
-
-    // Avoid inserting multiple slashes into a single fraction answer.
-    if(ansEl.value.includes('/')){
-      ansEl.focus();
-      return;
-    }
-
-    ansEl.value = ansEl.value.slice(0,start) + '/' + ansEl.value.slice(end);
-    const pos = start + 1;
-    ansEl.focus();
-    try { ansEl.setSelectionRange(pos,pos); } catch(e) {}
-    ansEl.dispatchEvent(new Event('input', {bubbles:true}));
-  });
 
   document.getElementById('newBtn').onclick=newQuestion;
   document.getElementById('skipBtn').onclick=newQuestion;
   document.getElementById('resetBtn').onclick=()=>{
     stats={correct:0,attempts:0,streak:0}; updateStats(); newQuestion();
   };
-  document.querySelectorAll('.type, #difficulty, #missing, #allowNeg').forEach(el=>{
+  document.querySelectorAll('.type, #missing, #allowNeg').forEach(el=>{
     el.addEventListener('change', newQuestion);
   });
 
