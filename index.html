@@ -387,23 +387,15 @@
   }
 
   function genDecimal(){
-    const mode = Math.random();
+    // Decimal questions are addition/subtraction only.
+    let a = chance(.50) ? ri(10,999)/10 : ri(20,99);
+    let b = chance(.60) ? ri(100,999)/10 : ri(20,99);
+    const op = chance(.52) ? '−' : '+';
 
-    if(mode < .55){
-      // One decimal mixed with integer/decimal, e.g. 9.9 - 53, 50 + 89.5
-      let a = chance(.50) ? ri(10,999)/10 : ri(20,99);
-      let b = chance(.60) ? ri(100,999)/10 : ri(20,99);
-      const op = chance(.52) ? '−' : '+';
+    if(allowNegEl.checked && chance(.12)) a = -a;
 
-      if(allowNegEl.checked && chance(.12)) a = -a;
-      const answer = op === '+' ? a+b : a-b;
-      return {text:`${a} ${op} ${b}`, answer};
-    }
-
-    // Decimal multiplication with clean mental structure.
-    const a = pick([1.2,1.5,2.5,3.2,4.5,5.5,6.4,7.5,8.8,9.6]);
-    const b = pick([4,5,8,10,12,20,25]);
-    return {text:`${a} × ${b}`, answer:a*b};
+    const answer = op === '+' ? a+b : a-b;
+    return {text:`${a} ${op} ${b}`, answer};
   }
 
   function genPercent(){
@@ -506,18 +498,29 @@
     const fixed = timeModeEl.value === 'fixed';
     fixedTimeControlsEl.classList.toggle('hidden', !fixed);
 
-    if(!fixed){
-      stopTimer();
-      deadline = null;
-      timeFinished = false;
-      ansEl.disabled = false;
-      if(mode === 'normal') timerEl.textContent = '∞';
-    } else {
-      stopTimer();
-      deadline = null;
-      timeFinished = false;
-      ansEl.disabled = false;
-      if(mode === 'normal') timerEl.textContent = '—';
+    // Full reset whenever time mode changes.
+    stopTimer();
+    deadline = null;
+    timeFinished = false;
+    ansEl.disabled = false;
+
+    score = 0;
+    scoreEl.textContent = '0';
+
+    easyStats = {correct:0};
+    updateEasyStats();
+
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'feedback';
+    ansEl.className = '';
+
+    if(mode === 'normal'){
+      timerEl.textContent = fixed ? '—' : '∞';
+    }
+
+    newQuestion();
+
+    if(fixed){
       setTimeout(() => minutesInputEl.focus(), 0);
     }
   }
@@ -576,12 +579,22 @@
 
   function applyMode(){
     mode = modeSelect.value;
+
+    // Full reset whenever mode changes.
+    stopTimer();
+    deadline = null;
+    timeFinished = false;
+    ansEl.disabled = false;
+
     score = 0;
     scoreEl.textContent = '0';
+
+    easyStats = {correct:0};
+    updateEasyStats();
+
     feedbackEl.textContent = '';
     feedbackEl.className = 'feedback';
     ansEl.className = '';
-    ansEl.disabled = false;
 
     if(mode === 'easy'){
       easyStatsEl.classList.remove('hidden');
@@ -589,10 +602,9 @@
     } else {
       easyStatsEl.classList.add('hidden');
       scorebarEl.classList.remove('hidden');
+
       if(timeModeEl.value === 'unlimited'){
         timerEl.textContent = '∞';
-      } else if(deadline && !timeFinished){
-        updateCountdown();
       } else {
         timerEl.textContent = '—';
       }
@@ -659,7 +671,7 @@
       feedbackEl.textContent = '−1';
       feedbackEl.className = 'feedback bad';
       ansEl.className = 'bad';
-      ansEl.select();
+      setTimeout(newQuestion, 140);
     }
   }
 
