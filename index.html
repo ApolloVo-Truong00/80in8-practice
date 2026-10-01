@@ -26,7 +26,7 @@
   }
   h1{font-size:20px; margin:0; font-weight:700; letter-spacing:.2px}
   .sub{color:var(--muted); font-size:13px}
-  .grid{display:grid; grid-template-columns:1fr 310px; gap:18px}
+  .grid{display:grid; grid-template-columns:1fr 310px; gap:18px; margin-top:8px}
   .card{
     background:rgba(23,26,33,.96); border:1px solid var(--border);
     border-radius:18px; box-shadow:var(--shadow);
@@ -46,6 +46,13 @@
   input.good{border-color:var(--good)}
   input.bad{border-color:var(--bad)}
   .feedback{height:28px; text-align:center; margin-top:12px; font-weight:650}
+  .fraction-tools{display:flex;justify-content:center;margin-top:10px}
+  .fraction-btn{
+    min-width:54px;font-size:22px;font-weight:700;padding:8px 16px;
+    background:#0d1015;color:var(--text);border:1px solid var(--border);
+    border-radius:10px;cursor:pointer;touch-action:manipulation;
+  }
+  .fraction-btn:active{transform:scale(.97)}
   .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
   .hint{text-align:center;color:var(--muted);font-size:13px;margin-top:12px}
   .stats{
@@ -81,22 +88,16 @@
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <div>
-      <h1>Untimed Arithmetic Drill</h1>
-      <div class="sub">Correct answer → next question. Wrong answer → keep trying.</div>
-    </div>
-    <div class="sub">No timer. No pressure.</div>
-  </div>
-
   <div class="grid">
     <section class="card main">
       <div id="question" class="question">12 × 7</div>
       <div class="answer-wrap">
         <input id="answer" type="text" inputmode="decimal" enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="off" aria-label="Answer" />
       </div>
+      <div class="fraction-tools">
+        <button id="slashBtn" class="fraction-btn" type="button" aria-label="Insert fraction slash">/</button>
+      </div>
       <div id="feedback" class="feedback"></div>
-      <div class="hint">Just type the answer — it advances automatically when correct. Fractions like <b>3/4</b> are accepted.</div>
 
       <div class="stats">
         <div class="stat"><b id="correct">0</b><span>Correct</span></div>
@@ -141,10 +142,6 @@
         </div>
       </div>
 
-      <div class="section tiny">
-        The generator favours clean mental-arithmetic questions rather than awkward calculator-style numbers.
-        Division questions always have exact integer answers. Percentage and fraction questions are generated to be mentally tractable.
-      </div>
     </aside>
   </div>
 </div>
@@ -350,6 +347,23 @@
   }
 
   ansEl.addEventListener('input', checkAnswerAutomatically);
+
+  document.getElementById('slashBtn').addEventListener('click', () => {
+    const start = ansEl.selectionStart ?? ansEl.value.length;
+    const end = ansEl.selectionEnd ?? ansEl.value.length;
+
+    // Avoid inserting multiple slashes into a single fraction answer.
+    if(ansEl.value.includes('/')){
+      ansEl.focus();
+      return;
+    }
+
+    ansEl.value = ansEl.value.slice(0,start) + '/' + ansEl.value.slice(end);
+    const pos = start + 1;
+    ansEl.focus();
+    try { ansEl.setSelectionRange(pos,pos); } catch(e) {}
+    ansEl.dispatchEvent(new Event('input', {bubbles:true}));
+  });
 
   document.getElementById('newBtn').onclick=newQuestion;
   document.getElementById('skipBtn').onclick=newQuestion;
