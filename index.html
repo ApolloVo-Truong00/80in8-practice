@@ -149,7 +149,7 @@
   #startTimerBtn{padding:9px 14px;font-weight:650}
 
   .easy-stats{
-    margin-top:22px; display:grid; grid-template-columns:1fr; gap:10px;
+    margin-top:22px; display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
   }
   .easy-stat{
     background:var(--panel2); border:1px solid var(--border);
@@ -160,7 +160,7 @@
     font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px;
   }
   @media(max-width:780px){
-    .easy-stats{grid-template-columns:1fr}
+    .easy-stats{grid-template-columns:repeat(2,1fr)}
   }
 </style>
 </head>
@@ -200,6 +200,8 @@
     
       <div id="easyStats" class="easy-stats">
         <div class="easy-stat"><b id="easyCorrect">0</b><span>Correct</span></div>
+        <div class="easy-stat"><b id="easyTimer">∞</b><span>Time remaining</span></div>
+      </div>
       </div>
 
       <div id="scorebar" class="scorebar hidden">
@@ -252,6 +254,7 @@
   const scorebarEl = document.getElementById('scorebar');
   const easyStatsEl = document.getElementById('easyStats');
   const easyCorrectEl = document.getElementById('easyCorrect');
+  const easyTimerEl = document.getElementById('easyTimer');
   let easyStats = {correct:0};
   const scoreEl = document.getElementById('score');
   const timerBoxEl = document.getElementById('timerBox');
@@ -498,7 +501,6 @@
     const fixed = timeModeEl.value === 'fixed';
     fixedTimeControlsEl.classList.toggle('hidden', !fixed);
 
-    // Full reset whenever time mode changes.
     stopTimer();
     deadline = null;
     timeFinished = false;
@@ -516,6 +518,8 @@
 
     if(mode === 'normal'){
       timerEl.textContent = fixed ? '—' : '∞';
+    } else if(mode === 'easy'){
+      easyTimerEl.textContent = fixed ? '—' : '∞';
     }
 
     newQuestion();
@@ -527,8 +531,14 @@
 
   function updateCountdown(){
     if(!deadline) return;
+
     const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-    if(mode === 'normal') timerEl.textContent = remaining;
+
+    if(mode === 'normal'){
+      timerEl.textContent = remaining;
+    } else if(mode === 'easy'){
+      easyTimerEl.textContent = remaining;
+    }
 
     if(remaining <= 0 && !timeFinished){
       timeFinished = true;
@@ -552,7 +562,6 @@
     timeFinished = false;
     ansEl.disabled = false;
 
-    // Start a completely fresh run.
     if(mode === 'easy'){
       easyStats = {correct:0};
       updateEasyStats();
@@ -569,6 +578,8 @@
 
     if(mode === 'normal'){
       timerEl.textContent = mins * 60;
+    } else if(mode === 'easy'){
+      easyTimerEl.textContent = mins * 60;
     }
 
     newQuestion();
@@ -580,7 +591,6 @@
   function applyMode(){
     mode = modeSelect.value;
 
-    // Full reset whenever mode changes.
     stopTimer();
     deadline = null;
     timeFinished = false;
@@ -599,15 +609,11 @@
     if(mode === 'easy'){
       easyStatsEl.classList.remove('hidden');
       scorebarEl.classList.add('hidden');
+      easyTimerEl.textContent = timeModeEl.value === 'unlimited' ? '∞' : '—';
     } else {
       easyStatsEl.classList.add('hidden');
       scorebarEl.classList.remove('hidden');
-
-      if(timeModeEl.value === 'unlimited'){
-        timerEl.textContent = '∞';
-      } else {
-        timerEl.textContent = '—';
-      }
+      timerEl.textContent = timeModeEl.value === 'unlimited' ? '∞' : '—';
     }
 
     newQuestion();
@@ -704,6 +710,7 @@
       score = 0;
       scoreEl.textContent = '0';
     }
+
     feedbackEl.textContent = '';
     ansEl.disabled = false;
     timeFinished = false;
@@ -711,13 +718,21 @@
     if(timeModeEl.value === 'unlimited'){
       stopTimer();
       deadline = null;
-      if(mode === 'normal') timerEl.textContent = '∞';
+      if(mode === 'normal'){
+        timerEl.textContent = '∞';
+      } else {
+        easyTimerEl.textContent = '∞';
+      }
     } else if(selectedMinutes()){
       startFixedTimer();
     } else {
       stopTimer();
       deadline = null;
-      if(mode === 'normal') timerEl.textContent = '—';
+      if(mode === 'normal'){
+        timerEl.textContent = '—';
+      } else {
+        easyTimerEl.textContent = '—';
+      }
     }
 
     newQuestion();
