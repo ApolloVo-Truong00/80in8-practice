@@ -1,4 +1,4 @@
-Created by ChatGPT. 
+Vibe coded with ChatGPT. 
 
 Practice mental arithmetic similar to what you can expect in 80 in 8. Press on the page link to play.
 
