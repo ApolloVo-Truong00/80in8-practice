@@ -125,6 +125,19 @@
   .scorebox b{display:block;font-size:24px}
   .scorebox span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
   .hidden{display:none !important}
+  .review{padding:28px; margin-top:18px}
+  .review h2{margin:0 0 8px;font-size:24px}
+  .review-summary{color:var(--muted);margin-bottom:18px}
+  .review-list{display:flex;flex-direction:column;gap:9px;max-height:65vh;overflow:auto}
+  .review-entry{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
+  .review-entry .details{min-width:0;overflow-wrap:anywhere}
+  .review-entry small{display:block;color:var(--muted);margin-top:5px}
+  .review-entry .status{font-weight:700;white-space:nowrap}
+  .review-entry .status.right{color:var(--good)}
+  .review-entry .status.wrong{color:var(--bad)}
+  .review-entry .status.skipped{color:var(--muted)}
+  #homeBtn{margin-top:20px;padding:12px 20px;font-weight:700}
+  .game-area.hidden{display:none !important}
 
 
   .time-settings{
@@ -167,6 +180,7 @@
 <body>
 <div class="app">
   
+  <div id="gameArea" class="game-area">
   <div class="mode-picker">
     <label for="modeSelect">Mode</label>
     <select id="modeSelect">
@@ -238,10 +252,76 @@
 
     </aside>
   </div>
+  </div>
+  <section id="reviewPage" class="card review hidden" aria-label="Timed session review">
+    <h2>Session review</h2>
+    <div id="reviewSummary" class="review-summary"></div>
+    <div id="reviewList" class="review-list"></div>
+    <button id="homeBtn" type="button">Return to home page</button>
+  </section>
 </div>
 
 <script>
 (() => {
+  const gameAreaEl = document.getElementById('gameArea');
+  const reviewPageEl = document.getElementById('reviewPage');
+  const reviewListEl = document.getElementById('reviewList');
+  const reviewSummaryEl = document.getElementById('reviewSummary');
+  const homeBtn = document.getElementById('homeBtn');
+  let sessionHistory = [];
+  let questionId = 0;
+  let sessionId = 0;
+  let timerActive = false;
+  let reviewShown = false;
+  const htmlEscape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function recordQuestion(status, answerText){
+    if(!timerActive || !current || current.recorded) return;
+    sessionHistory.push({question:current.text, expected:formatExpected(current), given:answerText || '—', status});
+    current.recorded = true;
+  }
+  function formatExpected(q){
+    return q.displayAnswer !== undefined ? q.displayAnswer : String(Number(q.answer.toFixed(10)));
+  }
+  function showReview(){
+    if(reviewShown) return;
+    reviewShown = true;
+    // Include the question visible when the countdown finished, if it was not completed.
+    recordQuestion('unanswered', ansEl.value.trim());
+    timerActive = false;
+    gameAreaEl.classList.add('hidden');
+    reviewPageEl.classList.remove('hidden');
+    const right = sessionHistory.filter(q => q.status === 'correct').length;
+    const wrong = sessionHistory.filter(q => q.status === 'incorrect').length;
+    const other = sessionHistory.length-right-wrong;
+    reviewSummaryEl.textContent = `${sessionHistory.length} questions · ${right} correct · ${wrong} incorrect · ${other} skipped/unanswered`;
+    reviewListEl.innerHTML = '';
+    sessionHistory.forEach((q,i) => {
+      const entry = document.createElement('div');
+      entry.className = 'review-entry';
+      const details = document.createElement('div');
+      details.className = 'details';
+      const question = document.createElement('strong');
+      question.textContent = `${i+1}. ${q.question}`;
+      const answers = document.createElement('small');
+      answers.textContent = `Your answer: ${q.given} · Correct answer: ${q.expected}`;
+      details.append(question, answers);
+      const status = document.createElement('span');
+      status.className = 'status ' + (q.status==='correct'?'right':q.status==='incorrect'?'wrong':'skipped');
+      status.textContent = ({correct:'Correct',incorrect:'Incorrect',skipped:'Skipped',unanswered:'Unanswered'})[q.status];
+      entry.append(details,status);
+      reviewListEl.append(entry);
+    });
+  }
+  homeBtn.addEventListener('click', () => {
+    reviewPageEl.classList.add('hidden');
+    gameAreaEl.classList.remove('hidden');
+    reviewShown = false;
+    timerActive = false;
+    sessionHistory = [];
+    deadline = null;
+    timeFinished = false;
+    renderTimeSetting();
+  });
   const qEl = document.getElementById('question');
   const ansEl = document.getElementById('answer');
   const feedbackEl = document.getElementById('feedback');
@@ -364,27 +444,25 @@
   }
 
   function genDiv(){
-    // Construct exact divisions first, then present the product.
-    const mode = Math.random();
-    let divisor, result;
-
-    if(mode < .58){
-      divisor = pick([12,14,15,16,18,20,24,25,30,32,36,40,48]);
-      result = ri(6, 24);
+    // Based on the reference recording: exact integer quotients, including
+    // larger dividends and convenient divisors (e.g. 350 ÷ 25, 1080 ÷ 60).
+    // Avoid non-integral quotients not observed in the reference sample.
+    const style = Math.random();
+    let divisor, quotient;
+    if(style < .42){
+      // Medium-size exact division with varied one- and two-digit divisors.
+      divisor = pick([6,7,8,9,12,14,15,16,18,20,24,25,30,32,36]);
+      quotient = ri(7, 35);
+    } else if(style < .80){
+      // Tidy divisions by multiples of 5, 10, 20, 25, etc.
+      divisor = pick([10,12,15,20,25,30,40,50,60,75]);
+      quotient = ri(8, 30);
     } else {
-      divisor = pick([6,8,9,10,12,15,16,20,24]);
-      result = ri(12, 48);
+      // Larger but mentally tractable dividends.
+      divisor = pick([12,15,20,24,25,30,40,50,60,75,80]);
+      quotient = ri(12, 48);
     }
-
-    let dividend = divisor * result;
-
-    // Keep typical displayed dividend mostly 2–3 digits / low 4 digits.
-    if(dividend > 999 && chance(.65)){
-      result = ri(6, 20);
-      dividend = divisor * result;
-    }
-
-    if(allowNegEl.checked && chance(.20)) dividend = -dividend;
+    const dividend = divisor * quotient * (allowNegEl.checked && chance(.14) ? -1 : 1);
     return maybeMissing(dividend, '÷', divisor, dividend/divisor);
   }
 
@@ -459,6 +537,9 @@
       type==='frac' ? genFrac() :
       genDecimal();
 
+    current.recorded = false;
+    current.type = type;
+    current.id = ++questionId;
     qEl.textContent=current.text;
     feedbackEl.textContent='';
     feedbackEl.className='feedback';
@@ -482,6 +563,23 @@
   }
 
 
+  function isCorrectAnswer(raw){
+    const value = parseAnswer(raw);
+    if(!Number.isFinite(value) || Math.abs(value-current.answer)>=1e-9) return false;
+    // A fraction question only accepts a fraction in lowest terms (or an integer).
+    if(current.type === 'frac'){
+      const s = raw.trim().replace(/\s/g,'');
+      if(s.includes('/')){
+        const match = s.match(/^([+-]?\d+)\/([+-]?\d+)$/);
+        if(!match) return false;
+        const a = Number(match[1]), b = Number(match[2]);
+        return b>1 && Number.isSafeInteger(a) && Number.isSafeInteger(b) && gcd(a,b)===1;
+      }
+      return /^[-+]?\d+$/.test(s) && Number.isInteger(current.answer);
+    }
+    return true;
+  }
+
   let advancing = false;
 
   function stopTimer(){
@@ -497,10 +595,13 @@
   }
 
   function renderTimeSetting(){
+    sessionId++;
+    advancing = false;
     const fixed = timeModeEl.value === 'fixed';
     fixedTimeControlsEl.classList.toggle('hidden', !fixed);
 
     stopTimer();
+    timerActive = false;
     deadline = null;
     timeFinished = false;
     ansEl.disabled = false;
@@ -529,7 +630,7 @@
   }
 
   function updateCountdown(){
-    if(!deadline) return;
+    if(!deadline || reviewShown) return;
 
     const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
 
@@ -545,6 +646,7 @@
       ansEl.disabled = true;
       feedbackEl.textContent = 'Time';
       feedbackEl.className = 'feedback';
+      showReview();
     }
   }
 
@@ -558,6 +660,11 @@
     }
 
     stopTimer();
+    sessionId++;
+    advancing = false;
+    sessionHistory = [];
+    timerActive = true;
+    reviewShown = false;
     timeFinished = false;
     ansEl.disabled = false;
 
@@ -588,9 +695,12 @@
   }
 
   function applyMode(){
+    sessionId++;
+    advancing = false;
     mode = modeSelect.value;
 
     stopTimer();
+    timerActive = false;
     deadline = null;
     timeFinished = false;
     ansEl.disabled = false;
@@ -636,8 +746,9 @@
     const value = parseAnswer(raw);
     if(!Number.isFinite(value)) return;
 
-    if(Math.abs(value-current.answer) < 1e-9){
+    if(isCorrectAnswer(raw)){
       advancing = true;
+      recordQuestion('correct',raw);
       easyStats.correct += 1;
       updateEasyStats();
 
@@ -645,8 +756,9 @@
       feedbackEl.className='feedback good';
       ansEl.className='good';
 
+      const id = sessionId;
       setTimeout(() => {
-        newQuestion();
+        if(!timeFinished && id === sessionId) newQuestion();
         advancing = false;
       }, 140);
     } else {
@@ -657,26 +769,31 @@
   }
 
   function submitNormal(){
-    if(mode !== 'normal' || timeFinished) return;
+    if(mode !== 'normal' || timeFinished || advancing) return;
 
     const raw = ansEl.value.trim();
     const value = parseAnswer(raw);
     if(!Number.isFinite(value)) return;
 
-    if(Math.abs(value-current.answer) < 1e-9){
+    advancing = true;
+    if(isCorrectAnswer(raw)){
+      recordQuestion('correct',raw);
       score += 1;
       scoreEl.textContent = score;
       feedbackEl.textContent = '+1';
       feedbackEl.className = 'feedback good';
       ansEl.className = 'good';
-      setTimeout(newQuestion, 140);
+      const id = sessionId;
+      setTimeout(() => { if(!timeFinished && id === sessionId) newQuestion(); advancing = false; }, 140);
     } else {
+      recordQuestion('incorrect',raw);
       score -= 1;
       scoreEl.textContent = score;
       feedbackEl.textContent = '−1';
       feedbackEl.className = 'feedback bad';
       ansEl.className = 'bad';
-      setTimeout(newQuestion, 140);
+      const id = sessionId;
+      setTimeout(() => { if(!timeFinished && id === sessionId) newQuestion(); advancing = false; }, 140);
     }
   }
 
@@ -699,9 +816,18 @@
     }
   });
 
-  document.getElementById('newBtn').onclick=newQuestion;
-  document.getElementById('skipBtn').onclick=newQuestion;
+  function skipQuestion(){
+    if(timeFinished || (timeModeEl.value==='fixed' && !timerActive)) return;
+    recordQuestion('skipped',ansEl.value.trim());
+    newQuestion();
+  }
+  document.getElementById('newBtn').onclick=skipQuestion;
+  document.getElementById('skipBtn').onclick=skipQuestion;
   document.getElementById('resetBtn').onclick=()=>{
+    sessionId++;
+    advancing = false;
+    timerActive = false;
+    sessionHistory = [];
     if(mode === 'easy'){
       easyStats = {correct:0};
       updateEasyStats();
@@ -737,7 +863,7 @@
     newQuestion();
   };
   document.querySelectorAll('.type, #missing, #allowNeg').forEach(el=>{
-    el.addEventListener('change', newQuestion);
+    el.addEventListener('change', () => { if(!timeFinished) { recordQuestion('skipped',ansEl.value.trim()); newQuestion(); } });
   });
   updateEasyStats();
   renderTimeSetting();
